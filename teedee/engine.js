@@ -210,16 +210,17 @@ export class Game{
     gl
     constructor(){
     }
-    async init(canvasid,onload){
+    async init(canvasid,onload,onupd){
         const {gl,vbo,ibo,stype,prog,buffer} = await graphics.initall(canvasid,"shaded")
         this.gl=gl
         this.vbo=vbo
         this.ibo=ibo
         this.prog = prog
         this.buffer=buffer
-        this.camera = new Camera([0,30,1],[0,0,0],gl,prog)
+        this.camera = new Camera([5,3,10],[0,0,0],gl,prog)
         this.camera.updateCam()
         onload()
+        this.onupd = onupd
         this.render()
     }
     addBox(x,y,z,sx,sy,sz,parent,name,color){
@@ -229,6 +230,12 @@ export class Game{
         parent[name]=box
         return parent[name]
     }
+    addScript(text,parent,name){
+        parent[name] = {
+            text,
+            run: false
+        }
+    }
     addBall(x,y,z,rad,parent,name,color){
         const ball = new Shape("ball",this.buffer,rad,color,this.things)
         ball.moveTo(x,y,z)
@@ -237,8 +244,19 @@ export class Game{
         return parent[name]
     }
     render = async()=>{
+        try{
         const t0 = performance.now()
         getDescendants(this.things).forEach(v=>v.update())
+        getDescendants(this.scripts).forEach(s=>{
+            if (!s.run){
+                const addToS = `
+                    const script = JSON.parse(${JSON.stringify(s)})
+                    const things = JSON.parse(${JSON.stringify(this.things)})
+                `
+                eval("try{"+addToS+s.text+"}catch(e){alert(e)}")
+                s.run = true
+            } 
+        })
         this.buffer.updateBuffers()
         await graphics.render(this.gl,this.prog,this.vbo,this.ibo,this.buffer)
         let rawDt = performance.now() - t0
@@ -249,9 +267,9 @@ export class Game{
         if (this._smoothedFps === undefined) this._smoothedFps = rawFps
         this._smoothedFps = this._smoothedFps * (1 - alpha) + rawFps * alpha
         const fpsVal = this._smoothedFps
-
-        fps.innerText = fpsVal.toFixed(1)
-        requestAnimationFrame(this.render)
+        this.onupd()
+        requestAnimationFrame(()=>{this.render()})
+    }catch(e){alert(e)}
     }
     moveCam(x,y,z){
 

@@ -4,9 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pew pew</title>
+    <style>
+        canvas{
+            position: absolute;
+            top: 0;
+            left: 25%;
+            width: 75%;
+            height: 90%;
+        }
+        .box{
+            position: absolute;
+            background-color: lightgray;
+            border: 2px solid black;
+        }
+        #leftbar{
+            top: 0;
+            left: 0;
+            bottom: 10%;
+            width: 25%;
+        }
+        #bottombar{
+            bottom: 0;
+            left: 0;
+            height: 10%;
+            right: 0;
+        }
+    </style>
 </head>
 <body>
     <canvas id="canv"></canvas>
-    <script src="./man.js" type="module"></script>
+    <div class="box" id="leftbar"></div>
+    <div class="box" id="bottombar"></div>
+    <script src="./main.js" type="module"></script>
 </body>
 </html>

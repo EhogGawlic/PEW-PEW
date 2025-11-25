@@ -1,4 +1,11 @@
 import * as mat4 from './toji-gl-matrix-1f872b8/src/mat4.js'
+
+export function multMat(v,m){
+    const x = m[0]*v.x+m[1]*v.y+m[2]*v.z
+    const y = m[3]*v.x+m[4]*v.y+m[5]*v.z
+    const z = m[6]*v.x+m[7]*v.y+m[8]*v.z
+    return {x,y,z}
+}
 export class triangleBuffer {
     inds = []
     verts = []
@@ -122,6 +129,51 @@ export class triangleBuffer {
         }
         // removed this.updateBuffers() so caller can batch uploads once per frame
     }
+    rotBoxTo(boxn,matrix){
+        /*moveBoxTo(boxn,x,y,z){
+        const box = this.boxes[boxn]
+        for (let vi = box.start*9; vi < box.end*9; vi+=9){
+            const i = vi-box.start*9
+            const vert = box.sverts.slice(i,i+9)
+            this.verts[vi] = vert[0]+x
+            this.verts[vi+1] = vert[1]+y
+            this.verts[vi+2] = vert[2]+z
+        }
+        // removed this.updateBuffers() so caller can batch uploads once per frame
+    } */
+        const box = this.boxes[boxn]
+        for (let vi = box.start*9; vi < box.end*9; vi+=9){
+            const i = vi-box.start*9
+            const vert = box.sverts.slice(i,i+9)
+            const np = multMat({x:vert[0],y:vert[1],z:vert[2]},matrix)
+            this.verts[vi] = np.x
+            this.verts[vi+1] = np.y
+            this.verts[vi+2] = np.z
+        }
+    }
+    rotBallTo(balln,matrix){
+        /*moveBoxTo(boxn,x,y,z){
+        const box = this.boxes[boxn]
+        for (let vi = box.start*9; vi < box.end*9; vi+=9){
+            const i = vi-box.start*9
+            const vert = box.sverts.slice(i,i+9)
+            this.verts[vi] = vert[0]+x
+            this.verts[vi+1] = vert[1]+y
+            this.verts[vi+2] = vert[2]+z
+        }
+        // removed this.updateBuffers() so caller can batch uploads once per frame
+    } */
+        const ball = this.balls[balln]
+        for (let vi = ball.start*9; vi < ball.end*9; vi+=9){
+            const i = vi-ball.start*9
+            const vert = ball.sverts.slice(i,i+9)
+            const np = multMat({x:vert[0],y:vert[1],z:vert[2]},matrix)
+            this.verts[vi] = np.x
+            this.verts[vi+1] = np.y
+            this.verts[vi+2] = np.z
+        }
+    }
+
     addBall(rad,bx,by,bz,r,g,b){
     const verts = []
     const inds = []

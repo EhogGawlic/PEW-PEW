@@ -9,6 +9,7 @@ mat4.lookAt(camera, [5, 5, 5], [0, 0, 0], [0, 1, 0])
 export const tcamera = camera
 export async function initall(canvasid, stype){
     const {canvas, gl} = init.initCanvas(canvasid)
+    mat4.perspective(pmat, 45 * Math.PI / 180, canvas.clientWidth/canvas.clientHeight, 0.1, 100.0)
     const shaders = await init.initShaders(gl, stype)
     console.log(shaders)
     let buffer = new triangleBuffer(gl)
