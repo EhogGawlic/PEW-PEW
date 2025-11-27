@@ -1,4 +1,190 @@
 import * as mat4 from './toji-gl-matrix-1f872b8/src/mat4.js'
+function multiplyMatrices(m1, m2) {
+    const result = new Array(9);
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            // result[i*3 + j] = m1[i*3]*m2[j] + m1[i*3+1]*m2[3+j] + m1[i*3+2]*m2[6+j]
+            result[i * 3 + j] = m1[i * 3] * m2[j] + 
+                                m1[i * 3 + 1] * m2[3 + j] + 
+                                m1[i * 3 + 2] * m2[6 + j];
+        }
+    }
+    return result;
+}
+// p: vec3 of the point to test (e.g., sphere center)
+// box: { center: vec3, rotation: 3x3 matrix (array of arrays), size: vec3 }
+
+export function transformToLocal(p, box) {
+    // Subtract box center
+    const dx = p[0] - box.pos[0];
+    const dy = p[1] - box.pos[1];
+    const dz = p[2] - box.pos[2];
+
+    // Apply transpose of rotation matrix (inverse rotation)
+    const R = box.rot;
+    return [
+        dx * R[0][0] + dy * R[1][0] + dz * R[2][0],
+        dx * R[0][1] + dy * R[1][1] + dz * R[2][1],
+        dx * R[0][2] + dy * R[1][2] + dz * R[2][2],
+    ];
+}
+function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+}
+
+export function closestPointOnBox(localPos, box) {
+    const hx = box.sz[0] / 2;
+    const hy = box.sz[1] / 2;
+    const hz = box.sz[2] / 2;
+
+    return [
+        clamp(localPos[0], -hx, hx),
+        clamp(localPos[1], -hy, hy),
+        clamp(localPos[2], -hz, hz)
+    ];
+}
+function dot(a,b) {
+    return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+}
+
+function cross(a,b) {
+    return [
+        a[1]*b[2]-a[2]*b[1],
+        a[2]*b[0]-a[0]*b[2],
+        a[0]*b[1]-a[1]*b[0]
+    ];
+}
+
+function projectBoxOntoAxis(box, axis) {
+    let r = 0;
+    const axes = box.rot;
+    for (let i=0;i<3;i++) {
+        r += box.halfExtents[i] * Math.abs(dot(axes[i], axis));
+    }
+    const c = dot(box.pos, axis);
+    return [c - r, c + r];
+}
+
+function overlap(proj1, proj2) {
+    return proj1[0] <= proj2[1] && proj2[0] <= proj1[1];
+}
+function overlapAmount(proj1, proj2) {
+    // proj = [min,max]
+    return Math.min(proj1[1], proj2[1]) - Math.max(proj1[0], proj2[0]);
+}
+
+function obbCollision(boxA, boxB) {
+    const axesA = boxA.rot;
+    const axesB = boxB.rot;
+
+    const axes = [];
+    // 3 axes from A
+    axes.push(...axesA);
+    // 3 axes from B
+    axes.push(...axesB);
+    // 9 cross products
+    for(let i=0;i<3;i++){
+        for(let j=0;j<3;j++){
+            const cp = cross(axesA[i], axesB[j]);
+            // skip near-zero vectors
+            if (cp[0]!==0 || cp[1]!==0 || cp[2]!==0)
+                axes.push(cp);
+        }
+    }
+
+    // test all axes
+    for (let axis of axes) {
+        const projA = projectBoxOntoAxis(boxA, axis);
+        const projB = projectBoxOntoAxis(boxB, axis);
+        if (!overlap(projA, projB)) return false; // separating axis found
+    }
+    return true; // no separating axis → collision
+}
+function obbCollisionWithMTV(boxA, boxB) {
+    const axesA = boxA.rot;
+    const axesB = boxB.rot;
+
+    const axes = [];
+    axes.push(...axesA);
+    axes.push(...axesB);
+
+    for(let i=0;i<3;i++){
+        for(let j=0;j<3;j++){
+            const cp = cross(axesA[i], axesB[j]);
+            if (cp[0]!==0 || cp[1]!==0 || cp[2]!==0)
+                axes.push(cp);
+        }
+    }
+
+    let minOverlap = Infinity;
+    let mtvAxis = null;
+
+    for (let axis of axes) {
+        // normalize axis
+        const len = Math.hypot(...axis);
+        if(len === 0) continue;
+        axis = axis.map(v => v/len);
+
+        const projA = projectBoxOntoAxis(boxA, axis);
+        const projB = projectBoxOntoAxis(boxB, axis);
+        if (!overlap(projA, projB)) return null; // no collision
+
+        const o = overlapAmount(projA, projB);
+        if (o < minOverlap) {
+            minOverlap = o;
+            mtvAxis = axis;
+        }
+    }
+
+    return { axis: mtvAxis, overlap: minOverlap };
+}
+export function sepBoxes(boxA,boxB){
+    const mtv = obbCollisionWithMTV(boxA, boxB);
+if (mtv) {
+    const direction = [
+        boxB.pos[0] - boxA.pos[0],
+        boxB.pos[1] - boxA.pos[1],
+        boxB.pos[2] - boxA.pos[2]
+    ];
+
+    // Ensure axis points from A to B
+    const dotProd = direction[0]*mtv.axis[0] + direction[1]*mtv.axis[1] + direction[2]*mtv.axis[2];
+    const sepAxis = dotProd < 0 ? mtv.axis.map(v => -v) : mtv.axis;
+
+    // Move boxes apart
+    // For example, move B fully, or half each
+    const halfOverlap = mtv.overlap / 2;
+
+    boxA.pos = boxA.pos.map((v,i) => v - sepAxis[i]*halfOverlap);
+    boxB.pos = boxB.pos.map((v,i) => v + sepAxis[i]*halfOverlap);
+}
+
+}
+export function eulerAngles(x, y, z) {
+    const xm = [
+        1, 0, 0,
+        0, Math.cos(x), -Math.sin(x),
+        0, Math.sin(x), Math.cos(x)
+    ];
+    const ym = [
+        Math.cos(y), 0, Math.sin(y),
+        0, 1, 0,
+        -Math.sin(y), 0, Math.cos(y)
+    ];
+    const zm = [
+        Math.cos(z), -Math.sin(z), 0,
+        Math.sin(z), Math.cos(z), 0,
+        0, 0, 1
+    ];
+
+    // Combine matrices correctly using matrix multiplication.
+    // The order depends on the desired Euler angle sequence (e.g., Z * Y * X)
+    // This example uses Z * Y * X order (common for extrinsic rotations):
+    let rm = multiplyMatrices(zm, ym);
+    rm = multiplyMatrices(rm, xm);
+    
+    return rm;
+}
 
 export function multMat(v,m){
     const x = m[0]*v.x+m[1]*v.y+m[2]*v.z
@@ -129,7 +315,7 @@ export class triangleBuffer {
         }
         // removed this.updateBuffers() so caller can batch uploads once per frame
     }
-    rotBoxTo(boxn,matrix){
+    rotBoxTo(boxn,matrix,x,y,z){
         /*moveBoxTo(boxn,x,y,z){
         const box = this.boxes[boxn]
         for (let vi = box.start*9; vi < box.end*9; vi+=9){
@@ -146,12 +332,16 @@ export class triangleBuffer {
             const i = vi-box.start*9
             const vert = box.sverts.slice(i,i+9)
             const np = multMat({x:vert[0],y:vert[1],z:vert[2]},matrix)
-            this.verts[vi] = np.x
-            this.verts[vi+1] = np.y
-            this.verts[vi+2] = np.z
+            const nn = multMat({x:vert[6],y:vert[7],z:vert[8]},matrix)
+            this.verts[vi] = np.x+x
+            this.verts[vi+1] = np.y+y
+            this.verts[vi+2] = np.z+z
+            this.verts[vi+6] = nn.x
+            this.verts[vi+7] = nn.y
+            this.verts[vi+8] = nn.z
         }
     }
-    rotBallTo(balln,matrix){
+    rotBallTo(balln,matrix,x,y,z){
         /*moveBoxTo(boxn,x,y,z){
         const box = this.boxes[boxn]
         for (let vi = box.start*9; vi < box.end*9; vi+=9){
@@ -168,9 +358,13 @@ export class triangleBuffer {
             const i = vi-ball.start*9
             const vert = ball.sverts.slice(i,i+9)
             const np = multMat({x:vert[0],y:vert[1],z:vert[2]},matrix)
-            this.verts[vi] = np.x
-            this.verts[vi+1] = np.y
-            this.verts[vi+2] = np.z
+            const nn = multMat({x:vert[6],y:vert[7],z:vert[8]},matrix)
+            this.verts[vi] = np.x+x
+            this.verts[vi+1] = np.y+y
+            this.verts[vi+2] = np.z+z
+            this.verts[vi+6] = nn.x
+            this.verts[vi+7] = nn.y
+            this.verts[vi+8] = nn.z
         }
     }
 
