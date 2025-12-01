@@ -342,17 +342,6 @@ export class triangleBuffer {
         }
     }
     rotBallTo(balln,matrix,x,y,z){
-        /*moveBoxTo(boxn,x,y,z){
-        const box = this.boxes[boxn]
-        for (let vi = box.start*9; vi < box.end*9; vi+=9){
-            const i = vi-box.start*9
-            const vert = box.sverts.slice(i,i+9)
-            this.verts[vi] = vert[0]+x
-            this.verts[vi+1] = vert[1]+y
-            this.verts[vi+2] = vert[2]+z
-        }
-        // removed this.updateBuffers() so caller can batch uploads once per frame
-    } */
         const ball = this.balls[balln]
         for (let vi = ball.start*9; vi < ball.end*9; vi+=9){
             const i = vi-ball.start*9
@@ -369,64 +358,64 @@ export class triangleBuffer {
     }
 
     addBall(rad,bx,by,bz,r,g,b){
-    const verts = []
-    const inds = []
-    const numVerts = 9.00001
-    let ind = this.ind
-    verts.push(bx, 1+by, bz, r, g, b,0, 1, 0)
+        const verts = []
+        const inds = []
+        const numVerts = 9.00001
+        let ind = this.ind
+        verts.push(bx, 1+by, bz, r, g, b,0, 1, 0)
 
-    // generate vertices per stack / slice
-    for (let i = 0; i < numVerts - 1; i++)
-    {
-        const phi = Math.PI * (i + 1) / numVerts
-        for (let j = 0; j < numVerts; j++)
+        // generate vertices per stack / slice
+        for (let i = 0; i < numVerts - 1; i++)
         {
-            const theta = 2.0 * Math.PI * j / numVerts
-            const nx = Math.sin(phi) * Math.cos(theta)
-            const ny = Math.cos(phi)
-            const nz = Math.sin(phi) * Math.sin(theta)
-            const x = rad * nx+bx
-            const y = rad * ny+by
-            const z = rad * nz+bz
-            verts.push(x, y, z, r, g, b, nx, ny, nz)
+            const phi = Math.PI * (i + 1) / numVerts
+            for (let j = 0; j < numVerts; j++)
+            {
+                const theta = 2.0 * Math.PI * j / numVerts
+                const nx = Math.sin(phi) * Math.cos(theta)
+                const ny = Math.cos(phi)
+                const nz = Math.sin(phi) * Math.sin(theta)
+                const x = rad * nx+bx
+                const y = rad * ny+by
+                const z = rad * nz+bz
+                verts.push(x, y, z, r, g, b, nx, ny, nz)
+            }
         }
-    }
 
-    // add bottom vertex
-    verts.push(bx, by-1, bz, r, g, b, 0, -1, 0)
+        // add bottom vertex
+        verts.push(bx, by-1, bz, r, g, b, 0, -1, 0)
 
-    // add top / bottom triangles
-    
-    for (let i = 0; i < numVerts - 1; i++)
-    {
-        let i0 = i + 1
-        let i1 = (i + 1) % numVerts + 1
-        inds.push(ind, i1+ind,i0+ind)
-        i0 = i + numVerts * (numVerts - 2) + 1
-        i1 = (i + 1) % numVerts + numVerts * (numVerts - 2) + 1
-        inds.push(numVerts * (numVerts - 1) + 1+ind, i0+ind, i1+ind)
-    }
-    for (let j = 0; j < numVerts - 2; j++)
-    {
-        const j0 = j * numVerts + 1
-        const j1 = (j + 1) * numVerts + 1
-        for (let i = 0; i < numVerts; i++)
+        // add top / bottom triangles
+        
+        for (let i = 0; i < numVerts - 1; i++)
         {
-            const i0 = j0 + i
-            const i1 = j0 + (i + 1) % numVerts
-            const i2 = j1 + (i + 1) % numVerts
-            const i3 = j1 + i
-            inds.push(i0+ind,i1+ind,i2+ind,i0+ind,i2+ind,i3+ind)
+            let i0 = i + 1
+            let i1 = (i + 1) % numVerts + 1
+            inds.push(ind, i1+ind,i0+ind)
+            i0 = i + numVerts * (numVerts - 2) + 1
+            i1 = (i + 1) % numVerts + numVerts * (numVerts - 2) + 1
+            inds.push(numVerts * (numVerts - 1) + 1+ind, i0+ind, i1+ind)
         }
+        for (let j = 0; j < numVerts - 2; j++)
+        {
+            const j0 = j * numVerts + 1
+            const j1 = (j + 1) * numVerts + 1
+            for (let i = 0; i < numVerts; i++)
+            {
+                const i0 = j0 + i
+                const i1 = j0 + (i + 1) % numVerts
+                const i2 = j1 + (i + 1) % numVerts
+                const i3 = j1 + i
+                inds.push(i0+ind,i1+ind,i2+ind,i0+ind,i2+ind,i3+ind)
+            }
+        }
+        this.verts.push(...verts)
+        this.inds.push(...inds)
+        const bl = verts.length/9
+        this.ind = this.verts.length/9
+        console.log(bl,ind,this.ind)
+        this.balls.push({start:this.ind-bl,end:this.ind,sverts:this.verts.slice((this.ind-bl)*9,this.ind*9)})
+        this.updateBuffers()
     }
-    this.verts.push(...verts)
-    this.inds.push(...inds)
-    const bl = verts.length/9
-    this.ind = this.verts.length/9
-    console.log(bl,ind,this.ind)
-    this.balls.push({start:this.ind-bl,end:this.ind,sverts:this.verts.slice((this.ind-bl)*9,this.ind*9)})
-    this.updateBuffers()
-}
 
     moveBallTo(balln,x,y,z){
         const ball = this.balls[balln]

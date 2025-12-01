@@ -30,7 +30,7 @@ class Shape{
         this.buf=buffer
         this.shape=shape
         this.color=color
-        this.rot=[0,0,0,0,0,0,0,0,0]
+        this.rot=utils.eulerAngles(0,0,0)
         switch(shape){
             case 'box':
                 buffer.addBox(this.pos[0],this.pos[1],this.pos[2],this.sz[0],this.sz[1],this.sz[2],this.color)
@@ -44,17 +44,20 @@ class Shape{
         }
     }
     moveTo(x,y,z){
+        this.pos = [x,y,z]
         switch(this.shape){
             case 'box':
                 this.buf.moveBoxTo(this.bi,x,y,z)
                 this.buf.rotBoxTo(this.bi,this.rot,this.pos[0],this.pos[1],this.pos[2])
                 break
             case 'ball':
+                try{
                 this.buf.moveBallTo(this.bi,x,y,z)
-                this.buf.rotBallTo(this.bi,this.rot,this.pos[0],this.pos[1],this.pos[2])
+
+                this.buf.rotBallTo(this.bi,this.rot,x,y,z)
+                }catch(e){alert(e)}
                 break
         }
-        this.pos = [x,y,z]
     }
     rotTo(matrix){
         switch(this.shape){
@@ -122,7 +125,7 @@ class Shape{
                         }
                     }
                 })
-                if (this.pos[1] < 0){
+                if (this.pos[1] < -2){
                     this.pos[1] = 0
                 }
             }
@@ -204,7 +207,7 @@ export class Game{
     render = async()=>{
         try{
         const t0 = performance.now()
-        getDescendants(this.things).forEach(v=>v.update())
+        getDescendants(this.things).forEach(v=>{try{v.update()}catch(e){alert(e)}})
         getDescendants(this.scripts).forEach(s=>{
             if (!s.run){
                 const addToS = `
